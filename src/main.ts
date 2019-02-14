@@ -1,3 +1,5 @@
+import { rquickExpr, parseHTML } from "./utilities";
+
 // export class FJQObject implements Iterable<any> {
 //   // public readonly length: number = 0;
 //   // private counter = 0;
@@ -65,7 +67,8 @@
 
 // export class FJQObject extends Array {
 export class FJQObject {
-  private readonly rquickExpr = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$/;
+  [index: number]: Element;
+  private readonly length: number;
   // private arr: any[] = [];
 
   // public push = this.arr.push;
@@ -86,7 +89,20 @@ export class FJQObject {
       ) {
         match = [null, selector, null];
       } else {
-        match = this.rquickExpr.exec(selector);
+        match = rquickExpr .exec(selector);
+      }
+
+      if (match && (match[1] || !context)) {
+        if (match[1]) {
+          context = context instanceof FJQObject ? context[0] : context;
+
+          // yep... this is downright weird and ts wont let me compile this one
+          this = [...parseHTML(
+            match[1],
+            context && context.nodeType ? context.ownerDocument || context: document,
+            true
+          )]
+        }
       }
     }
 
