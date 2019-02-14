@@ -148,9 +148,9 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
     tmp2 = getAll(fragment.appendChild( elem ), "script") as Element[];
     
     // Preserve script evaluation history
-    if ( contains ) {
-      setGlobalEval( tmp );
-    }
+    // if ( contains ) {
+    //   setGlobalEval( tmp );
+    // }
     
     // Capture executables
     if ( scripts ) {
@@ -164,6 +164,27 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
   }
   
   return fragment;
+}
+
+/**
+ * From https://github.com/nefe/You-Dont-Need-jQuery#utilities
+ * @param obj any object or primitive
+ */
+export function isPlainObject(obj: any): boolean {
+  if (
+    typeof (obj) !== 'object' ||
+    obj.nodeType ||
+    obj !== null && obj !== undefined && obj === obj.window
+  ) {
+    return false;
+  }
+
+  if (obj.constructor &&
+      !Object.prototype.hasOwnProperty.call(obj.constructor.prototype, 'isPrototypeOf')) {
+    return false;
+  }
+
+  return true;
 }
 
 export function htmlPrefilter( html: string ) {

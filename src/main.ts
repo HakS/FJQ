@@ -1,74 +1,8 @@
-import { rquickExpr, parseHTML } from "./utilities";
+import { rquickExpr, parseHTML, rsingleTag, isPlainObject } from "./utilities";
 
-// export class FJQObject implements Iterable<any> {
-//   // public readonly length: number = 0;
-//   // private counter = 0;
-
-//   constructor(selector: string, context: (FJQObject | Element) = null) {
-//     console.log('vrverv');
-//   }
-
-//   // public get length(): number {
-//   //   return this._length;
-//   // }
-
-//   // public next(): IteratorResult<any> {
-//   //   return {
-//   //     done: false,
-//   //     value: this.counter++
-//   //   }
-//   // }
-
-//   public [Symbol.iterator]() {
-//     // return this;
-//     // return {
-//     //   next: function() {
-//     //     console.log('erverve');
-//     //     return {
-//     //       done: this.counter === 5,
-//     //       value: this.counter++
-//     //     }
-//     //   }.bind(this)
-//       // }
-//     // }
-//     let step = 0;
-//     const iterator = {
-//       [Symbol.iterator]() {
-//         return this;
-//       },
-//       next() {
-//         if (step <= 2) {
-//           step++;
-//         }
-//         switch (step) {
-//           case 1:
-//             return { value: 'hello', done: false };
-//           case 2:
-//             return { value: 'world', done: false };
-//           default:
-//             return { value: undefined, done: true };
-//         }
-//       }
-//     };
-//     return iterator;
-//   }
-
-//   // get(index)
-//   // push(element|elements)
-//   // each() // make iterable
-//   // map
-//   // slice
-//   // first
-//   // last
-//   // eq
-//   // end
-
-// }
-
-// export class FJQObject extends Array {
 export class FJQObject {
   [index: number]: Element;
-  private readonly length: number;
+  public length: number = 0;
   // private arr: any[] = [];
 
   // public push = this.arr.push;
@@ -76,11 +10,13 @@ export class FJQObject {
   // public splice = this.arr.splice;
 
   constructor(selector: Node | string, context: (FJQObject | Element) = null) {
-    let match, elem;
+
+    let match: string[], elem: HTMLElement;
     if (!context) {
-      // return this; da fuk???
+      return this;
     }
 
+    // Handle HTML strings
     if (typeof selector === 'string') {
       if (
         selector[0] === '<' &&
@@ -89,26 +25,85 @@ export class FJQObject {
       ) {
         match = [null, selector, null];
       } else {
-        match = rquickExpr .exec(selector);
+        match = Array.from(rquickExpr.exec(selector));
       }
 
+      // HANDLE: $(html) -> $(array)
       if (match && (match[1] || !context)) {
         if (match[1]) {
           context = context instanceof FJQObject ? context[0] : context;
 
           // yep... this is downright weird and ts wont let me compile this one
-          this = [...parseHTML(
+          // const me: FJQObject = this;
+          // me. = [...parseHTML(
+          //   )]
+          const parsedHTML = parseHTML(
             match[1],
             context && context.nodeType ? context.ownerDocument || context: document,
             true
-          )]
+          );
+
+          // HANDLE: $(html, props)
+          if (rsingleTag.test(match[1]) && isPlainObject(context)) {
+            for (let i in context) {
+              // This seems to assign methods and attributes taken from the element itself
+              // jQuery you're weird dude
+              // if (isFunction(this[i])) {
+              //   this[i](context[i]);
+              // } else {
+              //   this.
+              // }
+            }
+          }
+
+          return this;
+        // HANDLE: $(#id)
+        } else {
+          elem = document.getElementById(match[2]);
+
+          if (elem) {
+            this[0] = elem;
+            this.length = 1;
+          }
+          return this;
         }
+      // HANDLE: $(expr, $(...))
+      } else if (!context || context instanceof FJQObject) {
+        // TODO: method find
+        // return (context || rootObj).find(selector);
+      // HANDLE: $(expr, context)
+      // (which is just equivalent to: $(context).find(expr)
+      } else {
+        // TODO: method find
+        // return new FJQObject(context).find(selector);
       }
+    // HANDLE: $(DOMElement)
+    } else if (selector.nodeType) {
+      this[0] = selector as Element;
+      this.length = 1;
+      return this;
     }
 
+    // This port wont handle onReady calls, I'll let the user or the library
+    // he uses to determine when the DOM is ready
+
+    // jQuery seems to have a utility to transform iterables to arrays if none
+    // of the previous options happen, however this library won't handle that
 
   }
+
+  public [Symbol.iterator]() {
+    let index = 0;
+    return {
+      next: () => ({
+        done: index === this.length,
+        value: this[index++]
+      })
+    }
+  }
 }
+
+export const rootObj: FJQObject = new FJQObject(document);
 
 export function FJQ(selector: string, context: (FJQObject | Element) = null): FJQObject {
   return new FJQObject(selector, context);
