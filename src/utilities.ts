@@ -1,3 +1,5 @@
+import { isFunction } from "util";
+
 export const rquickExpr = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$/;
 export const rsingleTag = ( /^<([a-z][^\/\0>:\x20\t\r\n\f]*)[\x20\t\r\n\f]*\/?>(?:<\/\1>|)$/i );
 export const rscriptType = ( /^$|^module$|\/(?:java|ecma)script/i );
@@ -28,6 +30,9 @@ wrapMap.optgroup = wrapMap.option;
 
 wrapMap.tbody = wrapMap.tfoot = wrapMap.colgroup = wrapMap.caption = wrapMap.thead;
 wrapMap.th = wrapMap.td;
+
+function find() {
+}
 
 function setGlobalEval( elems, refElements ) {
   var i = 0,
@@ -164,6 +169,69 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
   }
   
   return fragment;
+}
+
+function filter(expr: string, elems: any[], not: boolean) {
+  var elem = elems[ 0 ];
+
+  if (not) {
+    expr = ":not(" + expr + ")";
+  }
+
+  if ( elems.length === 1 && elem.nodeType === 1 ) {
+    return jQuery.find.matchesSelector( elem, expr ) ? [ elem ] : [];
+  }
+
+  return jQuery.find.matches(expr, grep(elems, elem => elem.nodeType === 1));
+}
+
+export function grep(
+  elems: any[],
+  callback: (item: any, i: number) => boolean,
+  invert: boolean = false
+) {
+  var callbackInverse,
+    matches = [],
+    i = 0,
+    length = elems.length,
+    callbackExpect = !invert;
+
+  // Go through the array, only saving the items
+  // that pass the validator function
+  for ( ; i < length; i++ ) {
+    callbackInverse = !callback(elems[i], i);
+    if ( callbackInverse !== callbackExpect ) {
+      matches.push( elems[ i ] );
+    }
+  }
+
+  return matches;
+}
+
+// Implement the identical functionality for filter and not
+export function winnow(elements: any[], qualifier: (Element | Function | string), not: boolean) {
+  if (qualifier instanceof Function) {
+    return grep(elements, (elem, i) => {
+      return !!qualifier.call( elem, i, elem ) !== not;
+    } );
+  }
+
+  // Single element
+  if (qualifier instanceof Element) {
+    return grep(elements, (elem) => {
+      return (elem === qualifier) !== not;
+    } );
+  }
+
+  // Arraylike of elements (jQuery, arguments, Array)
+  if ( typeof qualifier !== "string" ) {
+    return grep(elements, (elem) => {
+      return (elem.indexOf(qualifier) > -1 ) !== not;
+    } );
+  }
+
+  // Filtered directly for both simple and complex selectors
+  return filter(qualifier, elements, not);
 }
 
 /**

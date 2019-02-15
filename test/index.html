@@ -8,12 +8,12 @@
   <script type="module">
     import { FJQ } from './fjq.js';
 
-    const element = FJQ('sdfsdfd');
+    const element = FJQ('#test1');
     console.log(element);
     // console.log(element[0]);
-    // for (let i of element) {
-    //   console.log(i);
-    // }
+    for (let i of element) {
+      console.log(i);
+    }
   </script>
 </head>
 <body>
@@ -22,6 +22,8 @@
     <div class="content">
       <p>Test content</p>
     </div>
+    <div id="test1"></div>
+    <div id="test2"></div>
   </div>
 </body>
 </html>

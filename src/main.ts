@@ -1,4 +1,4 @@
-import { rquickExpr, parseHTML, rsingleTag, isPlainObject } from "./utilities";
+import { rquickExpr, parseHTML, rsingleTag, isPlainObject, winnow } from "./utilities";
 
 export class FJQObject {
   [index: number]: Element;
@@ -9,10 +9,13 @@ export class FJQObject {
   // public sort = this.arr.sort;
   // public splice = this.arr.splice;
 
-  constructor(selector: Node | string, context: (FJQObject | Element) = null) {
+  constructor(
+    selector: (FJQObject | Node | string) = null,
+    context: (FJQObject | Element) = null
+  ) {
 
     let match: string[], elem: HTMLElement;
-    if (!context) {
+    if (!selector) {
       return this;
     }
 
@@ -33,15 +36,15 @@ export class FJQObject {
         if (match[1]) {
           context = context instanceof FJQObject ? context[0] : context;
 
-          // yep... this is downright weird and ts wont let me compile this one
-          // const me: FJQObject = this;
-          // me. = [...parseHTML(
-          //   )]
           const parsedHTML = parseHTML(
             match[1],
             context && context.nodeType ? context.ownerDocument || context: document,
             true
           );
+          for (let htmlItem of parsedHTML) {
+            this[length] = htmlItem;
+            length++;
+          }
 
           // HANDLE: $(html, props)
           if (rsingleTag.test(match[1]) && isPlainObject(context)) {
@@ -78,7 +81,7 @@ export class FJQObject {
         // return new FJQObject(context).find(selector);
       }
     // HANDLE: $(DOMElement)
-    } else if (selector.nodeType) {
+    } else if (selector instanceof Node && selector.nodeType) {
       this[0] = selector as Element;
       this.length = 1;
       return this;
@@ -87,9 +90,56 @@ export class FJQObject {
     // This port wont handle onReady calls, I'll let the user or the library
     // he uses to determine when the DOM is ready
 
-    // jQuery seems to have a utility to transform iterables to arrays if none
-    // of the previous options happen, however this library won't handle that
+    // HANDLE: $(FJQObject)
+    // just return a clone
+    else if (selector instanceof FJQObject) {
+      for (let i in selector) {
+        this[i] = selector[i];
+      }
+      return this;
+    }
 
+  }
+
+  private pushStack(elems: any) {
+    // Build a new jQuery matched element set
+    // var ret = jQuery.merge( this.constructor(), elems );
+    const ret = {...new FJQObject(), ...elems};
+
+    // Add the old object onto the stack (as a reference)
+    ret.prevObject = this;
+
+    // Return the newly-formed element set
+    return ret;
+  }
+
+  public find(selector: FJQObject | Element | String) {
+    var i, ret,
+      len = this.length,
+      self = this;
+
+    if ( typeof selector !== "string" ) {
+      return this.pushStack( FJQ(selector as FJQObject | Element).filter( function() {
+        for ( i = 0; i < len; i++ ) {
+          if ( jQuery.contains( self[ i ], this ) ) {
+            return true;
+          }
+        }
+      } ) );
+    }
+
+    ret = this.pushStack( [] );
+
+    for ( i = 0; i < len; i++ ) {
+      // TODO: Sizzle
+      // jQuery.find( selector, self[ i ], ret );
+    }
+
+    return len > 1 ? jQuery.uniqueSort( ret ) : ret;
+  }
+
+  public filter(selector: any = []) {
+    return this.pushStack(winnow(this, selector, false));
   }
 
   public [Symbol.iterator]() {
@@ -105,6 +155,9 @@ export class FJQObject {
 
 export const rootObj: FJQObject = new FJQObject(document);
 
-export function FJQ(selector: string, context: (FJQObject | Element) = null): FJQObject {
+export function FJQ(
+  selector: (FJQObject | Node | string) = null,
+  context: (FJQObject | Element) = null
+): FJQObject {
   return new FJQObject(selector, context);
 }
