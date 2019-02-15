@@ -1,4 +1,6 @@
-import { isFunction } from "util";
+import Sizzle from 'sizzle';
+import { FJQObject } from './main';
+import Data from './data';
 
 export const rquickExpr = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$/;
 export const rsingleTag = ( /^<([a-z][^\/\0>:\x20\t\r\n\f]*)[\x20\t\r\n\f]*\/?>(?:<\/\1>|)$/i );
@@ -31,20 +33,9 @@ wrapMap.optgroup = wrapMap.option;
 wrapMap.tbody = wrapMap.tfoot = wrapMap.colgroup = wrapMap.caption = wrapMap.thead;
 wrapMap.th = wrapMap.td;
 
+const dataPriv = new Data();
+
 function find() {
-}
-
-function setGlobalEval( elems, refElements ) {
-  var i = 0,
-    l = elems.length;
-
-  for ( ; i < l; i++ ) {
-    dataPriv.set(
-      elems[ i ],
-      "globalEval",
-      !refElements || dataPriv.get( refElements[ i ], "globalEval" )
-    );
-  }
 }
 
 function toType(obj: any) {
@@ -55,21 +46,21 @@ function toType(obj: any) {
   return typeof obj;
 }
 
-function nodeName(elem: Document, name: string) {
+function nodeName(elem: Node | Document, name: string) {
   return elem.nodeName && elem.nodeName.toLowerCase() === name.toLowerCase();
 };
 
-function getAll(context: Document, tag: string ) {
-
-  // Support: IE <=9 - 11 only
-  // Use typeof to avoid zero-argument method invocation on host objects (#15151)
+function getAll(context: Node, tag?: string ) {
   var ret: Element[];
 
-  if ( typeof context.getElementsByTagName !== "undefined" ) {
-    ret = Array.from<Element>(context.getElementsByTagName( tag || "*" ));
+  if (context instanceof Document || context instanceof Element) {
 
-  } else if ( typeof context.querySelectorAll !== "undefined" ) {
-    ret = Array.from<Element>(context.querySelectorAll( tag || "*" ));
+    if (typeof context.getElementsByTagName !== "undefined" ) {
+      ret = Array.from<Element>(context.getElementsByTagName( tag || "*" ));
+  
+    } else if ( typeof context.querySelectorAll !== "undefined" ) {
+      ret = Array.from<Element>(context.querySelectorAll( tag || "*" ));
+    }
 
   } else {
     ret = [];
@@ -82,49 +73,56 @@ function getAll(context: Document, tag: string ) {
   return ret;
 }
 
-function buildFragment(elems: any[], context: Document, scripts: any[], selection, ignored) {
-  let elem, tmp: Node, tag: string, wrap, contains, j,
+function buildFragment(
+  elems: (FJQObject | Element | string | number)[],
+  context: Document,
+  scripts: any[],
+  selection: any[] = null,
+  ignored: Node[] = null
+) {
+  let elem: FJQObject | Element | string | number;
+  let tmp: Node, tag: string, wrap, contains, j,
   fragment = context.createDocumentFragment(),
-  nodes = [],
+  nodes: Node[] = [],
   i = 0,
   l = elems.length;
   
   for ( ; i < l; i++ ) {
-    elem = elems[ i ];
+    elem = elems[i];
     
-    if ( elem || elem === 0 ) {
+    if ( elem || elem === 0) {
       
       // Add nodes directly
-      if ( toType( elem ) === "object" ) {
-        nodes = [...(elem.nodeType ? [ elem ] : elem)]
-        
-        // Convert non-html into a text node
-      } else if ( !rhtml.test( elem ) ) {
-        nodes.push( context.createTextNode( elem ) );
-        
+      if (elem instanceof Element) {
+        Object.assign(nodes, elem.nodeType ? [ elem ] : elem);
+
+      // Convert non-html into a text node
+      } else if (typeof elem === 'string') {
+        if (!rhtml.test(elem)) {
+          nodes.push( context.createTextNode( elem ) );
         // Convert html into DOM nodes
-      } else {
-        tmp = tmp || fragment.appendChild( context.createElement( "div" ) );
-        
-        // Deserialize a standard representation
-        tag = ( rtagName.exec( elem ) || [ "", "" ] )[ 1 ].toLowerCase();
-        wrap = wrapMap[ tag ] || wrapMap._default;
-        (tmp as Element).innerHTML = wrap[ 1 ] + htmlPrefilter( elem ) + wrap[ 2 ];
-        
-        // Descend through wrappers to the right content
-        j = wrap[ 0 ];
-        while ( j-- ) {
-          tmp = tmp.lastChild;
+        } else {
+          tmp = tmp || fragment.appendChild( context.createElement( "div" ) );
+          
+          // Deserialize a standard representation
+          tag = (rtagName.exec(elem) || [ "", "" ] )[ 1 ].toLowerCase();
+          wrap = wrapMap[ tag ] || wrapMap._default;
+          (tmp as Element).innerHTML = wrap[ 1 ] + htmlPrefilter( elem ) + wrap[ 2 ];
+          
+          // Descend through wrappers to the right content
+          j = wrap[ 0 ];
+          while ( j-- ) {
+            tmp = tmp.lastChild;
+          }
+
+          nodes = [...Array.from(tmp.childNodes)]
+
+          // Remember the top-level container
+          tmp = fragment.firstChild;
+          
+          // Ensure the created nodes are orphaned (#12392)
+          tmp.textContent = "";
         }
-
-        nodes = [...Array.from(tmp.childNodes)]
-
-        
-        // Remember the top-level container
-        tmp = fragment.firstChild;
-        
-        // Ensure the created nodes are orphaned (#12392)
-        tmp.textContent = "";
       }
     }
   }
@@ -133,24 +131,23 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
   fragment.textContent = "";
   
   i = 0;
-  // These bastards used to reclycle variables in a bad way
-  let tmp2: Element[];
-  while ( ( elem = nodes[ i++ ] ) ) {
+  // These bastards reclycles variables in a way it looses completely its original use
+  let tmp2: Node[];
+  let elem2: Node;
+  while ((elem2 = nodes[i++])) {
     
     // Skip elements already in the context collection (trac-4087)
-    if ( selection && elem.indexOf(selection) > -1 ) {
-      if ( ignored ) {
-        ignored.push( elem );
+    if (selection && selection.indexOf(elem2) > -1 ) {
+      if (ignored) {
+        ignored.push(elem2);
       }
       continue;
     }
 
-    // TODO: contains = FJQ.contains(elem.ownerDocument, elem)
-    // this funcion is the prototype of using Sizzle.contains
-    // contains = jQuery.contains( elem.ownerDocument, elem );
+    contains = Sizzle.contains(elem2.ownerDocument, elem2);
 
     // Append to fragment
-    tmp2 = getAll(fragment.appendChild( elem ), "script") as Element[];
+    tmp2 = getAll(fragment.appendChild<Node>(elem2), "script") as Element[];
     
     // Preserve script evaluation history
     // if ( contains ) {
@@ -160,9 +157,9 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
     // Capture executables
     if ( scripts ) {
       j = 0;
-      while ( ( elem = tmp[ j++ ] ) ) {
-        if ( rscriptType.test( elem.type || "" ) ) {
-          scripts.push( elem );
+      while ((elem2 = tmp2[j++])) {
+        if (rscriptType.test((elem2 instanceof HTMLScriptElement && elem2.type) || "")) {
+          scripts.push(elem2);
         }
       }
     }
@@ -171,27 +168,48 @@ function buildFragment(elems: any[], context: Document, scripts: any[], selectio
   return fragment;
 }
 
-function filter(expr: string, elems: any[], not: boolean) {
-  var elem = elems[ 0 ];
+function filter(expr: string, elems: ArrayLike<Node>, not: boolean = false): ArrayLike<Node> {
+  const elem = elems[0];
 
   if (not) {
     expr = ":not(" + expr + ")";
   }
 
-  if ( elems.length === 1 && elem.nodeType === 1 ) {
-    return jQuery.find.matchesSelector( elem, expr ) ? [ elem ] : [];
+  if (elems.length === 1 && elem instanceof Element) {
+    return Sizzle.matchSelector(elem, expr) ? [ elem ] : [];
   }
 
-  return jQuery.find.matches(expr, grep(elems, elem => elem.nodeType === 1));
+  return Sizzle.matches(
+    expr,
+    grep<Node>(elems, elem => elem instanceof Element) as Element[]
+  );
 }
 
-export function grep(
-  elems: any[],
-  callback: (item: any, i: number) => boolean,
+function acceptData(owner: Node | ArrayLike<any>): boolean {
+  return owner instanceof Element || owner instanceof Document || !('nodeType' in owner)
+}
+
+export function isArrayLike(item: any): boolean {
+  if (Array.isArray(item)) return true;
+  if (typeof item === 'object') {
+    if (!('length' in item)) return false;
+    if (isNaN(item.length)) return false;
+    if (+item.length < 0) return false;
+    for (let i = 0; i < item.length; i++) {
+      if (!(i in item)) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+export function grep<T>(
+  elems: ArrayLike<T>,
+  callback: (item: T, i: number) => boolean,
   invert: boolean = false
 ) {
   var callbackInverse,
-    matches = [],
+    matches: T[] = [],
     i = 0,
     length = elems.length,
     callbackExpect = !invert;
@@ -201,7 +219,7 @@ export function grep(
   for ( ; i < length; i++ ) {
     callbackInverse = !callback(elems[i], i);
     if ( callbackInverse !== callbackExpect ) {
-      matches.push( elems[ i ] );
+      matches.push(elems[i]);
     }
   }
 
@@ -209,7 +227,7 @@ export function grep(
 }
 
 // Implement the identical functionality for filter and not
-export function winnow(elements: any[], qualifier: (Element | Function | string), not: boolean) {
+export function winnow(elements: ArrayLike<any>, qualifier: (Element | Function | string), not: boolean) {
   if (qualifier instanceof Function) {
     return grep(elements, (elem, i) => {
       return !!qualifier.call( elem, i, elem ) !== not;
@@ -259,7 +277,12 @@ export function htmlPrefilter( html: string ) {
   return html.replace( rxhtmlTag, "<$1></$2>" );
 }
 
-export function parseHTML(data: string, context: (Document | Element | boolean) = document, keepScripts: boolean = false) {
+export function parseHTML(
+  data: string,
+  context: (Node | boolean) = document,
+  keepScripts: boolean = false
+): Node[] {
+  let contextEval: Document;
   if (typeof data !== 'string') return[];
   if (typeof context === 'boolean') {
     keepScripts = context;
@@ -270,24 +293,53 @@ export function parseHTML(data: string, context: (Document | Element | boolean) 
   
   if (!context) {
     // createHTMLDocument MUST exist nowadays, I won't be supporting IE < 10
-    context = document.implementation.createHTMLDocument('');
-    base = (context as Document).createElement('base');
+    contextEval = document.implementation.createHTMLDocument('');
+    base = contextEval.createElement('base');
     base.href = document.location.href;
-    (context as Document).head.appendChild(base);
+    contextEval.head.appendChild(base);
+  } else {
+    contextEval = context as Document;
   }
   
   parsed = rsingleTag.exec(data);
   scripts = !keepScripts && [];
   
   if (parsed) {
-    return [(context as Document).createElement(parsed[1])];
+    return [contextEval.createElement(parsed[1])];
   }
   
-  parsed = buildFragment([data], context, scripts);
+  const parsed2 = buildFragment([data], contextEval, scripts);
 
   if (scripts && scripts.length) {
     // TODO: FJQ(scripts).remove();
   }
 
-  return [...parsed.childNodes];
+  return [...Array.from(parsed2.childNodes)];
+}
+
+export function remove(elem: FJQObject, selector?: string, keepData: boolean = false) {
+  var node: Element,
+    nodes = selector ? filter(selector, elem) : elem,
+    i = 0;
+
+  for ( ; ( node = nodes[i]) != null; i++ ) {
+    if ( !keepData && node instanceof Element) {
+      // Here jQuery removes the data of the picked element
+      // This library won't be handling custom data yet, and if it does, I want
+      // to make it an extension of this rather than something attached with it
+      // If you want to use Angular or React but want to select elements in a 
+      // jQuery-ish way without all the extra events, ajax, animations, then you can
+    }
+
+    if (node.parentNode) {
+      // if ( keepData && Sizzle.contains(node.ownerDocument, node)) {
+      // Again, this seems to be keeping the script elements it deletes
+      // a local cache is not a bad idea, but this jQuery data is storing
+      // the value at each DOM element, if 
+      // }
+      node.parentNode.removeChild(node);
+    }
+  }
+
+  return elem;
 }

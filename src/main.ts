@@ -1,7 +1,7 @@
-import { rquickExpr, parseHTML, rsingleTag, isPlainObject, winnow } from "./utilities";
+import { rquickExpr, parseHTML, rsingleTag, isPlainObject, winnow, remove, isArrayLike } from "./utilities";
 
-export class FJQObject {
-  [index: number]: Element;
+export class FJQObject implements ArrayLike<Node> {
+  [index: number]: Node;
   public length: number = 0;
   // private arr: any[] = [];
 
@@ -10,8 +10,8 @@ export class FJQObject {
   // public splice = this.arr.splice;
 
   constructor(
-    selector: (FJQObject | Node | string) = null,
-    context: (FJQObject | Element) = null
+    selector: (ArrayLike<Node> | Node | string) = null,
+    context: (ArrayLike<Node> | Node) = null
   ) {
 
     let match: string[], elem: HTMLElement;
@@ -34,11 +34,11 @@ export class FJQObject {
       // HANDLE: $(html) -> $(array)
       if (match && (match[1] || !context)) {
         if (match[1]) {
-          context = context instanceof FJQObject ? context[0] : context;
+          context = isArrayLike(context) ? (context as ArrayLike<Node>)[0] : context;
 
           const parsedHTML = parseHTML(
             match[1],
-            context && context.nodeType ? context.ownerDocument || context: document,
+            context && context instanceof Node ? context.ownerDocument || context: document,
             true
           );
           for (let htmlItem of parsedHTML) {
@@ -90,11 +90,12 @@ export class FJQObject {
     // This port wont handle onReady calls, I'll let the user or the library
     // he uses to determine when the DOM is ready
 
-    // HANDLE: $(FJQObject)
-    // just return a clone
-    else if (selector instanceof FJQObject) {
-      for (let i in selector) {
-        this[i] = selector[i];
+    // HANDLE: $(ArrayLike)
+    // just return a clone or wrap an array of Nodes
+    else if (isArrayLike(selector)) {
+      const selectorArr = selector as ArrayLike<Node>;
+      for (let i in selectorArr) {
+        this[i] = selectorArr[i];
       }
       return this;
     }
@@ -140,6 +141,10 @@ export class FJQObject {
 
   public filter(selector: any = []) {
     return this.pushStack(winnow(this, selector, false));
+  }
+
+  public remove(selector: string) {
+    return remove(this, selector);
   }
 
   public [Symbol.iterator]() {
