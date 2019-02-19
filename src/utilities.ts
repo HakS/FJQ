@@ -1,4 +1,3 @@
-import Sizzle from 'sizzle';
 import { FJQObject } from './main';
 import Data from './data';
 
@@ -335,7 +334,8 @@ export function remove(elem: FJQObject, selector?: string, keepData: boolean = f
       // if ( keepData && Sizzle.contains(node.ownerDocument, node)) {
       // Again, this seems to be keeping the script elements it deletes
       // a local cache is not a bad idea, but this jQuery data is storing
-      // the value at each DOM element, if 
+      // the value at each DOM element, maybe for this project I should create
+      // something like a singleton and do the caching there
       // }
       node.parentNode.removeChild(node);
     }
