@@ -1,4 +1,4 @@
-import { rquickExpr, parseHTML, rsingleTag, isPlainObject, winnow, remove, isArrayLike } from "./utilities";
+import { rquickExpr, isArrayLike } from "./utilities";
 
 export class FJQObject implements ArrayLike<Node> {
   [index: number]: Node;
@@ -10,15 +10,14 @@ export class FJQObject implements ArrayLike<Node> {
   // public splice = this.arr.splice;
 
   constructor(
-    selector: (ArrayLike<Node> | Node | string) = null,
-    context: (ArrayLike<Node> | Node) = null
+    selector: (FJQObject | ArrayLike<Node> | Node | string) = null,
+    context: (FJQObject | ArrayLike<Node> | Node) = null
   ) {
-
-    let match: string[], elem: HTMLElement;
     if (!selector) {
       return this;
     }
 
+    let match: string[], elem: HTMLElement;
     // Handle HTML strings
     if (typeof selector === 'string') {
       if (
@@ -28,36 +27,39 @@ export class FJQObject implements ArrayLike<Node> {
       ) {
         match = [null, selector, null];
       } else {
-        match = Array.from(rquickExpr.exec(selector));
+        match = rquickExpr.exec(selector);
       }
 
-      // HANDLE: $(html) -> $(array)
+      // Match html or make sure no context is specified for #id
       if (match && (match[1] || !context)) {
+        // HANDLE: $(html) -> $(array)
         if (match[1]) {
-          context = isArrayLike(context) ? (context as ArrayLike<Node>)[0] : context;
+          // context = isArrayLike(context) ? (context as ArrayLike<Node>)[0] : context;
 
-          const parsedHTML = parseHTML(
-            match[1],
-            context && context instanceof Node ? context.ownerDocument || context: document,
-            true
-          );
-          for (let htmlItem of parsedHTML) {
-            this[length] = htmlItem;
-            length++;
-          }
+          // const parsedHTML = parseHTML(
+          //   match[1],
+          //   context && context instanceof Node ? context.ownerDocument || context: document,
+          //   true
+          // );
+          // for (let htmlItem of parsedHTML) {
+          //   this[length] = htmlItem;
+          //   length++;
+          // }
 
-          // HANDLE: $(html, props)
-          if (rsingleTag.test(match[1]) && isPlainObject(context)) {
-            for (let i in context) {
-              // This seems to assign methods and attributes taken from the element itself
-              // jQuery you're weird dude
-              // if (isFunction(this[i])) {
-              //   this[i](context[i]);
-              // } else {
-              //   this.
-              // }
-            }
-          }
+          // // HANDLE: $(html, props)
+          // if (rsingleTag.test(match[1]) && isPlainObject(context)) {
+          //   for (let i in context) {
+          //     // This seems to assign methods and attributes taken from the element itself
+          //     // jQuery you're weird dude
+          //     // if (isFunction(this[i])) {
+          //     //   this[i](context[i]);
+          //     // } else {
+          //     //   this.
+          //     // }
+          //   }
+          // }
+
+          // TODO: as JQuery, this would have to support HTML parsing, nowadays there is DOMParser
 
           return this;
         // HANDLE: $(#id)
@@ -72,13 +74,11 @@ export class FJQObject implements ArrayLike<Node> {
         }
       // HANDLE: $(expr, $(...))
       } else if (!context || context instanceof FJQObject) {
-        // TODO: method find
-        // return (context || rootObj).find(selector);
+        return ((context || new FJQObject(document)) as FJQObject).find(selector);
       // HANDLE: $(expr, context)
       // (which is just equivalent to: $(context).find(expr)
       } else {
-        // TODO: method find
-        // return new FJQObject(context).find(selector);
+        return new FJQObject(context).find(selector);
       }
     // HANDLE: $(DOMElement)
     } else if (selector instanceof Node && selector.nodeType) {
@@ -87,13 +87,15 @@ export class FJQObject implements ArrayLike<Node> {
       return this;
     }
 
-    // This port wont handle onReady calls, I'll let the user or the library
+    // HANDLE: $(function)
+    // It won't handle onReady calls, I'll let the user or the library/framework
     // he uses to determine when the DOM is ready
 
     // HANDLE: $(ArrayLike)
     // just return a clone or wrap an array of Nodes
     else if (isArrayLike(selector)) {
       const selectorArr = selector as ArrayLike<Node>;
+      this.length = selectorArr.length;
       for (let i in selectorArr) {
         this[i] = selectorArr[i];
       }
@@ -102,50 +104,42 @@ export class FJQObject implements ArrayLike<Node> {
 
   }
 
-  private pushStack(elems: any) {
-    // Build a new jQuery matched element set
-    // var ret = jQuery.merge( this.constructor(), elems );
-    const ret = {...new FJQObject(), ...elems};
+  // private pushStack(elems: any) {
+  //   // Build a new jQuery matched element set
+  //   // var ret = jQuery.merge( this.constructor(), elems );
+  //   const ret = {...new FJQObject(), ...elems};
 
-    // Add the old object onto the stack (as a reference)
-    ret.prevObject = this;
+  //   // Add the old object onto the stack (as a reference)
+  //   ret.prevObject = this;
 
-    // Return the newly-formed element set
-    return ret;
-  }
+  //   // Return the newly-formed element set
+  //   return ret;
+  // }
 
-  public find(selector: FJQObject | Element | String) {
-    var i, ret,
-      len = this.length,
-      self = this;
-
-    if ( typeof selector !== "string" ) {
-      return this.pushStack( FJQ(selector as FJQObject | Element).filter( function() {
-        for ( i = 0; i < len; i++ ) {
-          if ( jQuery.contains( self[ i ], this ) ) {
-            return true;
-          }
+  public find(selector: FJQObject | Element | String): FJQObject {
+    let found: Element[] = [];
+    for (const elem of this) {
+      if (elem instanceof Document || elem instanceof Element) {
+        // TODO: figure out how to use DOM elements to do the search
+        // note it seems to find for elements that already exists, therefore
+        // you should check if an element belongs to the DOM
+        if (selector instanceof FJQObject) {
+        } else if (selector instanceof Element) {
+        } else if (typeof selector === 'string') {
+          found = [...Array.from(elem.querySelectorAll(selector))];
         }
-      } ) );
+      }
     }
-
-    ret = this.pushStack( [] );
-
-    for ( i = 0; i < len; i++ ) {
-      // TODO: Sizzle
-      // jQuery.find( selector, self[ i ], ret );
-    }
-
-    return len > 1 ? jQuery.uniqueSort( ret ) : ret;
+    return new FJQObject(found);
   }
 
-  public filter(selector: any = []) {
-    return this.pushStack(winnow(this, selector, false));
-  }
+  // public filter(selector: any = []) {
+  //   return this.pushStack(winnow(this, selector, false));
+  // }
 
-  public remove(selector: string) {
-    return remove(this, selector);
-  }
+  // public remove(selector: string) {
+  //   return remove(this, selector);
+  // }
 
   public [Symbol.iterator]() {
     let index = 0;
@@ -158,11 +152,9 @@ export class FJQObject implements ArrayLike<Node> {
   }
 }
 
-export const rootObj: FJQObject = new FJQObject(document);
-
 export function FJQ(
-  selector: (FJQObject | Node | string) = null,
-  context: (FJQObject | Element) = null
+  selector: (FJQObject | ArrayLike<Node> | Node | string) = null,
+  context: (FJQObject | ArrayLike<Node> | Node) = null
 ): FJQObject {
   return new FJQObject(selector, context);
 }

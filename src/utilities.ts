@@ -1,5 +1,5 @@
 import { FJQObject } from './main';
-import Data from './data';
+// import Data from './data';
 
 export const rquickExpr = /^(?:\s*(<[\w\W]+>)[^>]*|#([\w-]+))$/;
 export const rsingleTag = ( /^<([a-z][^\/\0>:\x20\t\r\n\f]*)[\x20\t\r\n\f]*\/?>(?:<\/\1>|)$/i );
@@ -32,7 +32,7 @@ wrapMap.optgroup = wrapMap.option;
 wrapMap.tbody = wrapMap.tfoot = wrapMap.colgroup = wrapMap.caption = wrapMap.thead;
 wrapMap.th = wrapMap.td;
 
-const dataPriv = new Data();
+// const dataPriv = new Data();
 
 function find() {
 }
@@ -56,7 +56,7 @@ function getAll(context: Node, tag?: string ) {
 
     if (typeof context.getElementsByTagName !== "undefined" ) {
       ret = Array.from<Element>(context.getElementsByTagName( tag || "*" ));
-  
+
     } else if ( typeof context.querySelectorAll !== "undefined" ) {
       ret = Array.from<Element>(context.querySelectorAll( tag || "*" ));
     }
@@ -85,12 +85,12 @@ function buildFragment(
   nodes: Node[] = [],
   i = 0,
   l = elems.length;
-  
+
   for ( ; i < l; i++ ) {
     elem = elems[i];
-    
+
     if ( elem || elem === 0) {
-      
+
       // Add nodes directly
       if (elem instanceof Element) {
         Object.assign(nodes, elem.nodeType ? [ elem ] : elem);
@@ -102,12 +102,12 @@ function buildFragment(
         // Convert html into DOM nodes
         } else {
           tmp = tmp || fragment.appendChild( context.createElement( "div" ) );
-          
+
           // Deserialize a standard representation
           tag = (rtagName.exec(elem) || [ "", "" ] )[ 1 ].toLowerCase();
           wrap = wrapMap[ tag ] || wrapMap._default;
           (tmp as Element).innerHTML = wrap[ 1 ] + htmlPrefilter( elem ) + wrap[ 2 ];
-          
+
           // Descend through wrappers to the right content
           j = wrap[ 0 ];
           while ( j-- ) {
@@ -118,23 +118,23 @@ function buildFragment(
 
           // Remember the top-level container
           tmp = fragment.firstChild;
-          
+
           // Ensure the created nodes are orphaned (#12392)
           tmp.textContent = "";
         }
       }
     }
   }
-  
+
   // Remove wrapper from fragment
   fragment.textContent = "";
-  
+
   i = 0;
   // These bastards reclycles variables in a way it looses completely its original use
   let tmp2: Node[];
   let elem2: Node;
   while ((elem2 = nodes[i++])) {
-    
+
     // Skip elements already in the context collection (trac-4087)
     if (selection && selection.indexOf(elem2) > -1 ) {
       if (ignored) {
@@ -147,12 +147,12 @@ function buildFragment(
 
     // Append to fragment
     tmp2 = getAll(fragment.appendChild<Node>(elem2), "script") as Element[];
-    
+
     // Preserve script evaluation history
     // if ( contains ) {
     //   setGlobalEval( tmp );
     // }
-    
+
     // Capture executables
     if ( scripts ) {
       j = 0;
@@ -163,7 +163,7 @@ function buildFragment(
       }
     }
   }
-  
+
   return fragment;
 }
 
@@ -287,9 +287,9 @@ export function parseHTML(
     keepScripts = context;
     context = false;
   }
-  
+
   let base: HTMLBaseElement, parsed: RegExpExecArray, scripts: (boolean | any[]);
-  
+
   if (!context) {
     // createHTMLDocument MUST exist nowadays, I won't be supporting IE < 10
     contextEval = document.implementation.createHTMLDocument('');
@@ -299,14 +299,14 @@ export function parseHTML(
   } else {
     contextEval = context as Document;
   }
-  
+
   parsed = rsingleTag.exec(data);
   scripts = !keepScripts && [];
-  
+
   if (parsed) {
     return [contextEval.createElement(parsed[1])];
   }
-  
+
   const parsed2 = buildFragment([data], contextEval, scripts);
 
   if (scripts && scripts.length) {
@@ -326,7 +326,7 @@ export function remove(elem: FJQObject, selector?: string, keepData: boolean = f
       // Here jQuery removes the data of the picked element
       // This library won't be handling custom data yet, and if it does, I want
       // to make it an extension of this rather than something attached with it
-      // If you want to use Angular or React but want to select elements in a 
+      // If you want to use Angular or React but want to select elements in a
       // jQuery-ish way without all the extra events, ajax, animations, then you can
     }
 
